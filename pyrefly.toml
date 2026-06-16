@@ -1,0 +1,17 @@
+[tool.pyrefly]
+strict = true
+
+python_version = "3.11"
+venv_path = "."
+venv = ".venv"
+
+exclude = [
+    "**/node_modules",
+    "**/build",
+    "**/dist"
+]
+
+[tool.pyrefly.plugins]
+# Enable advanced framework tracking if you use them
+pydantic = true
+pytorch_tensors = true
