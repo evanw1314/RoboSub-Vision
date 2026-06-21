@@ -12,6 +12,6 @@ exclude = [
 ]
 
 [tool.pyrefly.plugins]
-# Enable advanced framework tracking if you use them
+
 pydantic = true
 pytorch_tensors = true

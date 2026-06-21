@@ -80,6 +80,56 @@ def apply_underwater_effect(frame, depth):
     # Convert the frame's datatype back into uint8 so openCV doesn't crash
     return np.clip(degraded, 0, 255).astype(np.uint8)
 
+# Corrects a degraded underwater image by 1) increasing the red channel, 2) achieving the gray world assumption, and 3) using histogram equalization.
+def correct_underwater_image(frame):
+    
+    degraded = frame.astype(np.float32)
+    
+    # Step 1: Increase Red Channel
+    # Red light is absorbed the deeper one goes underwater. We add this red back into the image using the amount of blue as a reference.
+    
+    # np.mean calculates the mean value of a grid. Here, we find the mean red, blue, and green in the image.
+    mean_red = np.mean(degraded[:, :, 2])
+    mean_green = np.mean(degraded[:, :, 1])
+    mean_blue = np.mean(degraded[:, :, 0])
+    
+    # We add 50% of the average difference between blue and red back into the image's red channels.
+    # We don't add 100% of the difference because that would assume the image naturally contains equal amounts of red and blue, which is almost never true in ocean scenes.
+    difference = mean_blue - mean_red
+    degraded[:, :, 2] = np.clip(degraded[:, :, 2] + difference * 0.5, 0, 255)
+    
+    # Step 2: Achieve Gray World Assumption, which states that in a natural scene, the average brightness of each color channel should be equal to the average brightness of the entire image.
+    # mean_bgr is the average brightness of the entire image.
+    mean_red = np.mean(degraded[:, :, 2])
+    mean_bgr = (mean_red + mean_green + mean_blue) / 3.0
+    
+    # If the average brightness of a color channel is not equal average brightness of the image, we correct it by scaling each pixel of that color channel by: (avg image brightness) / (avg brightness of color channel)
+    # We use 1e-6 as a safety net in case the average brightness of a color channel is 0 (which would result in a divide by 0 error).
+    degraded[:, :, 2] = np.clip(degraded[:, :, 2] * mean_bgr / max(mean_red, 1e-6), 0, 255)
+    degraded[:, :, 1] = np.clip(degraded[:, :, 1] * mean_bgr / max(mean_green, 1e-6), 0, 255)
+    degraded[:, :, 0] = np.clip(degraded[:, :, 0] * mean_bgr / max(mean_blue, 1e-6), 0, 255)
+    
+    degraded = degraded.astype(np.uint8)
+    
+    # lab color space: l = lightness (from pure black to pure white), a = green (-128) --> red (127), b = blue (-128) --> yellow (127)
+    lab = cv2.cvtColor(degraded, cv2.COLOR_BGR2LAB)
+    
+    # cv2.split splits a color channel into its components (each a single 2d array).
+    l_channel, a_channel, b_channel = cv2.split(lab)
+    
+    # use CLAHE instead of standard HE because it ensures the entire image's histogram isn't improperly spread out by implementing a clipLimit and utilizing billinear interpolation (using the closest 4 tiles' center pixels' mapping functions to determine the final value of each pixel).
+    # clipLimit is a multiplier to determine the actual pixel ceiling. Calculation: (clipLimit) * (# of pixels per tile) / (256).
+    # createCLAHE's tileGridSize parameter specificies what kind of grid we want to split our image into. Choosing to split the image into an 8x8 grid (or 64 tiles) is the most common choice.
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8,8))
+    
+    l_enhanced = clahe.apply(l_channel)
+    
+    lab_enhanced = cv2.merge([l_enhanced, a_channel, b_channel])
+    
+    degraded = cv2.cvtColor(lab_enhanced, cv2.COLOR_LAB2BGR)
+    
+    return degraded
+    
 cap = cv2.VideoCapture(0)
 
 # isOpened tells us whether the camera or file has been successfully connected or not.
@@ -88,39 +138,50 @@ if not cap.isOpened():
     exit()
 
 # cv2's namedWindow function allows us to add UI elements to a window before displaying it. In contrast, imshow creates and display the window automatically, so that's why we don't use it here.
-cv2.namedWindow("Underwater Simulation")
+cv2.namedWindow("Color Correction")
 
 # cv2's createTrackbar function adds an interactive slider to the window. cv2's trackbars always range from 0 to max_value (max_value passed in as an argument).
-# arguments: (Slider name, Name of window to add slider to, intial starting position of slider, max_value, function when used)
+# arguments: (Slider name, Window to add Slider to, intial starting position of slider, max_value, function when adjusted)
 # Because the createTrackbar function requires a 5th argument, which is the function to call when the trackbar is used (but we have none), we pass in "lambda x: None", which effectively is a function that does nothing.
-cv2.createTrackbar("Depth %", "Underwater Simulation", 30, 100, lambda x: None)
+cv2.createTrackbar("Depth %", "Color Correction", 50, 100, lambda x: None)
 
-print("Drag the slider to change the effect")
+print("Left: Live Feed || Center: Degraded || Right: Corrected")
 print("Press 'Q' to quit")
 
 while True:
 
     # the read function grabs the next frame from the camera.
-    # ret tells us whether the next frame was successfully read or not
-    # frame is the actual next frame (3d array) from the camera.
+    # ret: whether the next frame was successfully read or not
+    # frame: the actual next frame (3d array) from the camera.
     ret, frame = cap.read()
 
     if not ret:
         print("Error: Failed to grab frame.")
         break
     
-    depth_percent = cv2.getTrackbarPos("Depth %", "Underwater Simulation")
+    depth_percent = cv2.getTrackbarPos("Depth %", "Color Correction")
     depth = depth_percent / 100.0
     
     result = apply_underwater_effect(frame, depth)
+    corrected = correct_underwater_image(result)
     
-    label = f"Simulated depth: {depth_percent}%"
+    height, width = frame.shape[:2]
     
-    # Arguments: (image to put text on, the string text, coordinates of top left of the text, font, font scale size, color in BGR, line thickness)
-    cv2.putText(result, label, (12, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (200, 220, 255), 2)
+    def add_label(img, text):
+        out = img.copy()
+        
+        # cv2.rectangle args: (img to overwrite, coord of top-left corner, coord of bottom-right corner, color, thickness --> -1 = fill)
+        cv2.rectangle(out, (0, 0), (width, 28), (0, 0, 0), -1)
+        cv2.putText(out, text, (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        return out
     
-    cv2.imshow("Original", frame)
-    cv2.imshow("Underwater Simulation", result)
+    panel_original = add_label(frame, "Original")
+    panel_degraded = add_label(result, f"Degraded (Depth: {int(depth*100)}%)")
+    panel_corrected = add_label(corrected, "Corrected")
+    
+    # np.hstack takes a list of arrays and attaches them together side-by-side along their horizontal axis (It's required that the arrays' heights be equal)
+    comparison = np.hstack([panel_original, panel_degraded, panel_corrected])
+    cv2.imshow("Color Correction", comparison)
 
     # waitKey forces the program to wait 1 ms before switching frames (vid), and also returns the ASCII value of key pressed during that time frame.
     # We use & 0xFF (bitwise AND) in order to retrieve the actual ASCII value
@@ -129,7 +190,5 @@ while True:
         print("'Q' pressed, exiting.")
         break
 
-# Unlocks the camera for other applications to use
 cap.release()
-
 cv2.destroyAllWindows()
