@@ -22,12 +22,11 @@ UPPER_RED_2 = np.array([180, 255, 255])
 
 def main():
     cap = cv2.VideoCapture(DEFAULT_WEBCAM_IDX)
-
     if not cap.isOpened():
         print("Camera Error")
         exit()
 
-    print("Press 'q' to quit.")
+    print("Press 'Q' to quit.")
 
     kernel = np.ones(MORPHOLOGY_KERNEL_SIZE, dtype=np.uint8)
 
@@ -75,7 +74,7 @@ def main():
         cv2.imshow("Color Detection", output)
 
         if cv2.waitKey(REFRESH_TIME) & 0xFF == ord("q"):
-            print("'q' pressed, exiting.")
+            print("'Q' pressed, exiting.")
             break
 
     cap.release()
