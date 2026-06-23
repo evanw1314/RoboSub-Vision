@@ -123,9 +123,7 @@ def correct_underwater_image(frame):
     clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8,8))
     
     l_enhanced = clahe.apply(l_channel)
-    
     lab_enhanced = cv2.merge([l_enhanced, a_channel, b_channel])
-    
     degraded = cv2.cvtColor(lab_enhanced, cv2.COLOR_LAB2BGR)
     
     return degraded
