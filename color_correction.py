@@ -51,7 +51,8 @@ def apply_underwater_effect(frame, depth):
     degraded = frame.astype(np.float32)
     height, width = degraded.shape[:2]
 
-    # Effect 1: Color Absorption (Long wavelengths absorbed faster than short wavelengths)
+    # Effect 1: Color Absorption (Long wavelengths absorbed faster than short
+    # wavelengths)
     degraded[:, :, 2] *= max(0.0, 1.0 - depth * MAX_RED_ABSORPTION)
     degraded[:, :, 1] *= max(0.0, 1.0 - depth * MAX_GREEN_ABSORPTION)
     degraded[:, :, 0] *= max(0.0, 1.0 - depth * MAX_BLUE_ABSORPTION)
@@ -75,21 +76,29 @@ def apply_underwater_effect(frame, depth):
     fog_layer[:, :, 1] = MURKY_TEAL_GREEN
     fog_layer[:, :, 2] = MURKY_TEAL_RED
     degraded = cv2.addWeighted(
-        degraded, 1.0 - haze_strength, fog_layer, haze_strength, 0.0
+        degraded,
+        1.0 - haze_strength,
+        fog_layer,
+        haze_strength,
+        0.0,
     )
 
     # Effect 4: Blur (Simulates light scattering caused by microparticles)
     blue_kernel = int(depth * 2) * 2 + 1  # Ensures odd kernel size
     degraded = cv2.GaussianBlur(
-        degraded, (blue_kernel, blue_kernel), GAUSSIAN_KERNEL_SIGMAX
+        degraded,
+        (blue_kernel, blue_kernel),
+        GAUSSIAN_KERNEL_SIGMAX,
     )
 
     # Effect 5: Vignette (Simulates the gradual loss of light from the lens center)
-    Y, X = np.ogrid[:height, :width]
+    y, x = np.ogrid[:height, :width]
     cx, cy = width / 2.0, height / 2.0
-    dist_from_center = np.sqrt(((X - cx) / cx) ** 2 + ((Y - cy) / cy) ** 2)
+    dist_from_center = np.sqrt(((x - cx) / cx) ** 2 + ((y - cy) / cy) ** 2)
     vignette_mask = np.clip(
-        1.0 - dist_from_center * depth * VIGNETTE_MULTIPLIER, 0.0, 1.0
+        1.0 - dist_from_center * depth * VIGNETTE_MULTIPLIER,
+        0.0,
+        1.0,
     )
     degraded *= vignette_mask[:, :, np.newaxis]
 
@@ -120,7 +129,8 @@ def correct_underwater_image(frame):
         degraded[:, :, 2] + difference * RED_CORRECTION_FACTOR, 0, 255
     )
 
-    # Step 2: Gray World Assumption (Average brightness of each color channel should equal the average brightness of the entire image)
+    # Step 2: Gray World Assumption (Average brightness of each color channel
+    # should equal the average brightness of the entire image)
     mean_red = np.mean(degraded[:, :, 2])
     mean_bgr = (mean_red + mean_green + mean_blue) / 3.0
 
@@ -195,7 +205,7 @@ def main():
         result = apply_underwater_effect(frame, depth)
         corrected = correct_underwater_image(result)
 
-        height, width = frame.shape[:2]
+        width = frame.shape[1]
 
         panel_original = add_label(frame, "Original", width)
         panel_degraded = add_label(

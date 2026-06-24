@@ -43,21 +43,18 @@ def apply_underwater_effect(frame, depth):
     degraded = frame.astype(np.float32)
     height, width = degraded.shape[:2]
 
-    # Effect 1: Color Absorption (Long wavelengths absorbed faster than short wavelengths)
+    # Effect 1: Color Absorption (Long wavelengths absorbed faster than short
+    # wavelengths)
     degraded[:, :, 2] *= max(0.0, 1.0 - depth * MAX_RED_ABSORPTION)
     degraded[:, :, 1] *= max(0.0, 1.0 - depth * MAX_GREEN_ABSORPTION)
     degraded[:, :, 0] *= max(0.0, 1.0 - depth * MAX_BLUE_ABSORPTION)
 
     # Effect 2: Blue-Green Glow (Simulates light scattering)
     degraded[:, :, 0] = np.clip(
-        degraded[:, :, 0] + depth * BLUE_GLOW_MULTIPLIER,
-        0,
-        255,
+        degraded[:, :, 0] + depth * BLUE_GLOW_MULTIPLIER, 0, 255
     )
     degraded[:, :, 1] = np.clip(
-        degraded[:, :, 1] + depth * GREEN_GLOW_MULTIPLIER,
-        0,
-        255,
+        degraded[:, :, 1] + depth * GREEN_GLOW_MULTIPLIER, 0, 255
     )
 
     # Effect 3: Haze/Fog Layer (Simulates underwater murkiness caused by dirt & algae)
@@ -77,9 +74,9 @@ def apply_underwater_effect(frame, depth):
     )
 
     # Effect 5: Vignette (Simulates the gradual loss of light from the lens center)
-    Y, X = np.ogrid[:height, :width]
+    y, x = np.ogrid[:height, :width]
     cx, cy = width / 2.0, height / 2.0
-    dist_from_center = np.sqrt(((X - cx) / cx) ** 2 + ((Y - cy) / cy) ** 2)
+    dist_from_center = np.sqrt(((x - cx) / cx) ** 2 + ((y - cy) / cy) ** 2)
     vignette_mask = np.clip(
         1.0 - dist_from_center * depth * VIGNETTE_MULTIPLIER, 0.0, 1.0
     )

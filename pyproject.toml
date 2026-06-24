@@ -1,0 +1,82 @@
+[tool.pyrefly]
+strict = true
+
+python_version = "3.11"
+venv_path = "."
+venv = ".venv"
+
+exclude = [
+    "**/node_modules",
+    "**/build",
+    "**/dist"
+]
+
+[tool.pyrefly.plugins]
+pydantic = true
+pytorch_tensors = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = [
+    "tests",
+    "sandbox",
+]
+python_files = ["test_*.py", "*_test.py"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "cv2.*",
+    "numpy.*",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py311"
+
+line-length = 88
+
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   
+    "W",   
+    "F",   
+    "I",   
+    "B",   
+    "C4",  
+    "N",   
+    "UP",  
+    "NPY", 
+    "RUF", 
+]
+
+ignore = [
+    "B008", 
+]
+
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"sandbox/*.py" = ["F401", "N"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
