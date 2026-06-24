@@ -181,7 +181,7 @@ def main():
         print("Camera Error. Exiting")
         exit()
 
-    cv2.namedWindow("Color Correction")
+    cv2.namedWindow("Color Correction", cv2.WINDOW_NORMAL)
     cv2.createTrackbar(
         "Depth %",
         "Color Correction",
@@ -214,7 +214,39 @@ def main():
         panel_corrected = add_label(corrected, "Corrected", width)
 
         comparison = np.hstack([panel_original, panel_degraded, panel_corrected])
-        cv2.imshow("Color Correction", comparison)
+
+        win_rect = cv2.getWindowImageRect("Color Correction")
+        win_width, win_height = win_rect[2], win_rect[3]
+
+        if win_width > 0 and win_height > 0:
+            img_height, img_width = comparison.shape[:2]
+
+            scale = win_width / img_width
+            new_width = win_width
+            new_height = int(img_height * scale)
+
+            resized_comparison = cv2.resize(
+                comparison, (new_width, new_height), interpolation=cv2.INTER_AREA
+            )
+
+            if new_height < win_height:
+                top_pad = (win_height - new_height) // 2
+                bottom_pad = win_height - new_height - top_pad
+                final_comparison = cv2.copyMakeBorder(
+                    resized_comparison,
+                    top_pad,
+                    bottom_pad,
+                    0,
+                    0,
+                    cv2.BORDER_CONSTANT,
+                    value=(0, 0, 0),
+                )
+            else:
+                final_comparison = resized_comparison
+        else:
+            final_comparison = comparison
+
+        cv2.imshow("Color Correction", final_comparison)
 
         if cv2.waitKey(REFRESH_TIME) & 0xFF == ord("q"):
             print("'Q' pressed, exiting.")
